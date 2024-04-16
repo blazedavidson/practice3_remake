@@ -1,4 +1,4 @@
-package ru.practice2;
+package ru.practice3;
 
 public class Fraction implements Fractionable {
     private int num;
@@ -7,6 +7,10 @@ public class Fraction implements Fractionable {
     public Fraction(int num, int denum) {
         this.num = num;
         this.denum = denum;
+    }
+
+    public Fraction getStamp() {
+        return new Fraction( this.num, this.denum);
     }
 
     @Mutator
@@ -20,14 +24,21 @@ public class Fraction implements Fractionable {
     }
 
     @Override
-    @Cache
+    @Cache(1000)
     public double doubleValue() {
         System.out.println("invoke double value");
         return (double) num/denum;
     }
+    @Override
+    public boolean equals(Object obj) {
 
-    private boolean fromCache;
-    public boolean getCache() {
-        return fromCache;
+        if (this == obj) return true;
+
+        if (obj == null || getClass() != obj.getClass()) return false;
+
+        Fraction fraction = (Fraction) obj;
+
+        return num == fraction.num && denum == fraction.denum;
+
     }
 }

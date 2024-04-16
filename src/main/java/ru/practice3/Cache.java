@@ -1,10 +1,10 @@
-package ru.practice2;
+package ru.practice3;
 
 import java.lang.annotation.*;
 
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 
-public @interface Mutator {
+public @interface Cache {
     int value() default 0;
 }
