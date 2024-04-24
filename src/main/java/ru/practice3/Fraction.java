@@ -11,7 +11,7 @@ public class Fraction implements Fractionable {
 
     public Fraction getStamp() {
         return new Fraction( this.num, this.denum);
-    }
+   }
 
     @Mutator
     public void setNum(int num) {
@@ -24,7 +24,7 @@ public class Fraction implements Fractionable {
     }
 
     @Override
-    @Cache(1000)
+    @Cache(300)
     public double doubleValue() {
         System.out.println("invoke double value");
         return (double) num/denum;
@@ -33,11 +33,9 @@ public class Fraction implements Fractionable {
     public boolean equals(Object obj) {
 
         if (this == obj) return true;
-
         if (obj == null || getClass() != obj.getClass()) return false;
 
         Fraction fraction = (Fraction) obj;
-
         return num == fraction.num && denum == fraction.denum;
 
     }

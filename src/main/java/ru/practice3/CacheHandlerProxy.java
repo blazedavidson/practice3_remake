@@ -6,13 +6,54 @@ import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class CachingHandler implements InvocationHandler{
+public class CacheHandlerProxy implements InvocationHandler{
+
+    public class RecycleBin extends Thread {
+        private volatile boolean clear, active = true;
+
+        public RecycleBin(String name) {super(name); clear = true;}
+
+        @Override
+        public void run() {
+            while (active) {
+                try {
+                    if (clear) {
+                        HashSet<FractionRes> tempHash;
+                        long minTime =  new Date().getTime() - 1000;
+                        Iterator<Map.Entry<String, HashSet<FractionRes>>> i = cacheMap.entrySet().iterator();
+                        while (i.hasNext()) { //чистим
+                            tempHash = i.next().getValue();
+                            for (Iterator<FractionRes> it = tempHash.iterator(); it.hasNext(); ) {
+                                if (it.next().timeCache < minTime) {
+                                    System.out.println("->очистка метода из кэша");
+                                    it.remove();
+                                }
+                            }
+                            if (tempHash.isEmpty()) {
+                                i.remove();
+                            }
+                        }
+                    }
+                    sleep( 0);
+                }
+                catch (InterruptedException ex) { break; }
+                catch (Exception ex) { }
+            }
+        }
+
+        public void endClearing() {
+            active = false;
+        }
+    }
+
 
     private static class FractionRes {
         public final Object objCache;
         public long timeCache;
 
         public Object res;
+
+
 
         public FractionRes(Object objCache, long timeCache, Object res) {
             this.objCache = objCache;
@@ -22,25 +63,24 @@ public class CachingHandler implements InvocationHandler{
     }
 
     private final Object obj;
-
-    private final Timeable timeCache;
     private final ConcurrentHashMap<String, HashSet<FractionRes>> cacheMap = new ConcurrentHashMap<>();
     private boolean fromCache;
-
-    public boolean checkCache() {
-        return fromCache;
+    RecycleBin recycleBin;
+    public void stopClear() {
+        if( recycleBin != null) recycleBin.endClearing();
     }
-    public CachingHandler(Object obj, Timeable timeCache) {
-        this.obj = obj; this.timeCache = timeCache;
+    public CacheHandlerProxy(Object obj) {
+        this.obj = obj;
     }
 
     public void clearFullCache(String className) {
+
         if (!cacheMap.isEmpty()) {
             Iterator<Map.Entry<String, HashSet<FractionRes>>> iterator = cacheMap.entrySet().iterator();
             while (iterator.hasNext()) {
                 if (iterator.next().getKey().indexOf(className + "/") == 0) {
-                    //System.out.println(">>> remove cache");
                     iterator.remove();
+                    System.out.println("->очистка кэша");
                 }
             }
         }
@@ -56,6 +96,15 @@ public class CachingHandler implements InvocationHandler{
         String methodString;
         Object tempObject;
         long deltaTimeCache;
+
+        //очистка
+        if (recycleBin == null) {
+
+            recycleBin = new RecycleBin( "RecycleBin");
+            recycleBin.setPriority( Thread.MIN_PRIORITY);
+
+            recycleBin.start();
+        }
 
         try{
             currentMethod = obj.getClass().getMethod(method.getName(), method.getParameterTypes());
@@ -76,14 +125,13 @@ public class CachingHandler implements InvocationHandler{
 
             fromCache = false;
 
-            deltaTimeCache = currentMethod.getAnnotation( Cache.class).value();
-            long currentTimeCache = timeCache.deltaTime();
+            deltaTimeCache = currentMethod.getAnnotation(Cache.class).value();
+            long currentTimeCache = System.currentTimeMillis();
             long endingTimeCache = currentTimeCache + deltaTimeCache;
 
             methodString = obj.getClass().getName() + "/" + method.getName() + ":";
-            int iArg = 0;
             for (Parameter param : currentMethod.getParameters()) {
-                methodString = methodString + (String) param.getName() + "-" + (String) param.getType().toString() + ">" + args[ iArg++].toString() + ","; }
+                methodString = methodString + (String) param.getName() + "-" + (String) param.getType().toString() + ","; }
 
             if (cacheMap.containsKey(methodString)) {
                 tempHashFr = cacheMap.get( methodString);
